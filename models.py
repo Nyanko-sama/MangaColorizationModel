@@ -368,8 +368,9 @@ class ConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels, strides=(1,2), dilation=1):
         super().__init__()
         self.layer = nn.Sequential()
+        pad = 1 if dilation == 1 else 2
         for i, stride in enumerate(strides):
-            self.layer.add_module(f'conv_{i}', nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=True, dilation=dilation))
+            self.layer.add_module(f'conv_{i}', nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=pad, bias=True, dilation=dilation))
             self.layer.add_module(f'relu_{i}', nn.ReLU(True))
             in_channels = out_channels
         self.layer.add_module('batchnorm', nn.BatchNorm2d(out_channels))
@@ -406,7 +407,6 @@ class Generator(nn.Module):
     def forward(self, x):
         conv1_2 = self.l1(x)
         conv2_2 = self.l2(conv1_2)
-        print(conv2_2.shape)
         conv3_3 = self.l3(conv2_2)
         conv4_3 = self.l4(conv3_3)
         conv5_3 = self.l5(conv4_3)
@@ -414,48 +414,7 @@ class Generator(nn.Module):
         conv7_3 = self.l7(conv6_3)
         conv8_3 = self.l8(conv7_3)
         out_reg = self.out(self.softmax(conv8_3))
-
-        return self.upsample4(out_reg)
-
-
-class GeneratorWithFusion(nn.Module):
-    def __init__(self):
-        super().__init__()
-
-        self.l1 = ConvBlock(1, 64)
-        self.l2 = ConvBlock(64, 128)
-        self.l3 = ConvBlock(128, 256, strides=(1,1,2))
-        self.l4 = ConvBlock(256, 512, strides=(1,1,1))
-        self.l5 = ConvBlock(512, 512, strides=(1,1,1), dilation=2)
-        self.l6 = ConvBlock(512, 512, strides=(1,1,1), dilation=2)
-        self.l7 = ConvBlock(512, 512, strides=(1,1,1))
-
-        self.l8 = nn.Sequential(
-            nn.ConvTranspose2d(512, 256, kernel_size=4, stride=2, padding=1, bias=True),
-            nn.ReLU(True),
-            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1, bias=True),
-            nn.ReLU(True),
-            nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1, bias=True),
-            nn.ReLU(True),
-            nn.Conv2d(256, 313, kernel_size=1, stride=1, padding=0, bias=True),
-        )
-
-        self.softmax = nn.Softmax(dim=1)
-        self.out = nn.Conv2d(313, 2, kernel_size=1, padding=0, dilation=1, stride=1, bias=False)
-        self.upsample4 = nn.Upsample(scale_factor=4, mode='bilinear')
-
-    def forward(self, x):
-        conv1_2 = self.l1(x)
-        conv2_2 = self.l2(conv1_2)
-        print(conv2_2.shape)
-        conv3_3 = self.l3(conv2_2)
-        conv4_3 = self.l4(conv3_3)
-        conv5_3 = self.l5(conv4_3)
-        conv6_3 = self.l6(conv5_3)
-        conv7_3 = self.l7(conv6_3)
-        conv8_3 = self.l8(conv7_3)
-        out_reg = self.out(self.softmax(conv8_3))
-
-        return self.upsample4(out_reg)
+        out_reg = self.upsample4(out_reg)
+        return out_reg
 
 
