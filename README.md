@@ -2,16 +2,19 @@
 
 This is my manga colorization model. 
 
-The purpose of this model is to colorize black and white manga. Currently, I am training it on 30k images from Tagged Anime Illustration [Dataset] (https://www.kaggle.com/datasets/mylesoneill/tagged-anime-illustrations/data), but in the future I am going to implement segmentation into panels and colorization of real manga pages. 
+The purpose of this model is to colorize black and white manga. Before, I was training it on 30k images from Tagged Anime Illustration [Dataset](https://www.kaggle.com/datasets/mylesoneill/tagged-anime-illustrations/data), however, it is not working correctly with this dataset, as there are a lot of sketches that need to be filtered. Therefore, I switched to Anime Sketch Colorization Pair [Dataset](https://www.kaggle.com/datasets/ktaebum/anime-sketch-colorization-pair/code). Later, I am going to implement segmentation into panels and colorization of real manga pages, possibly from this [dataset](https://huggingface.co/datasets/hal-utokyo/Manga109-s). 
 
 There are several possible architectures I tried (still in process):
 - simple autoencoder 
 - Unet-based 
 - colorization with dilation by [richzang](https://github.com/richzhang/colorization)
 - colorization with fusion to classifier features (described in the [article](https://dl.acm.org/doi/10.1145/2897824.2925974))
-- implementation of GAN by [mberkay0](https://github.com/mberkay0/image-colorization), which could work with all generators listed above 
+- implementation of GAN by [mberkay0](https://github.com/mberkay0/image-colorization), which could work with all generators listed above
+- GAN model with user-guidance as in the [article](https://paperswithcode.com/paper/user-guided-deep-anime-line-art-colorization ) 
 
 ## References
-https://github.com/richzhang/colorization
-https://huggingface.co/Keiser41/Example_Based_Manga_Colorization
-https://github.com/mberkay0/image-colorization
+- https://github.com/richzhang/colorization
+- https://huggingface.co/Keiser41/Example_Based_Manga_Colorization
+- https://github.com/mberkay0/image-colorization
+- https://github.com/orashi/AlacGAN/tree/master
+
