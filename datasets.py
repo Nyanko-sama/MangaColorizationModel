@@ -4,6 +4,9 @@ import os
 from sklearn.model_selection import train_test_split
 import numpy as np
 import cv2
+from scipy import stats
+
+import torchvision.transforms as transforms
 
 #####################   DanbooruDataset #####################
 class DanbooruDataset(torch.utils.data.Dataset):
@@ -110,6 +113,7 @@ class MangaScanesDataset(torch.utils.data.Dataset):
     """
     def __init__(self, image_paths, resize = (512, 512)):
         self.image_paths = image_paths
+        self.resize = resize
         self.pad = NewPad()
 
     def __len__(self):
@@ -167,13 +171,17 @@ class MangaScanesDataModule:
 
         self.train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
         self.smal_loader = torch.utils.data.DataLoader(small_dataset, batch_size=self.batch_size, shuffle=True) 
-            
-################### TestVis #######################
-class TestImageDataset(torch.utils.data.Dataset):
-    def __init__(self, image_paths, resize_shape = (512, 512)):
+        
+class SketchDataset(torch.utils.data.Dataset):
+    """
+    PyTorch Dataset for the MangaScanes dataset.
+    Returns (L channel, ab channels) tuples.
+    """
+    def __init__(self, image_paths, resize = (256, 256), out_ch = 2):
         self.image_paths = image_paths
         self.pad = NewPad()
-        self.resize = resize_shape
+        self.resize = resize
+        self.out_ch = out_ch
 
     def __len__(self):
         return len(self.image_paths)
@@ -182,87 +190,73 @@ class TestImageDataset(torch.utils.data.Dataset):
         img_path = self.image_paths[idx]
         img = cv2.imread(img_path)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+        color = img[:, :512, :]     # Left half → [C, 512, 512]
+        line = img[:, 512:, :]    # Right half → [C, 512, 512]
+
         # resize with padding to keep aspect ratio
-        img = self.pad(img)
-        img = cv2.resize(img, self.resize)
+        color = cv2.resize(color, self.resize)
+        line = cv2.resize(line, self.resize)
+        if self.out_ch == 2:
+            color = cv2.cvtColor(color, cv2.COLOR_RGB2LAB)
 
-        img_lab = cv2.cvtColor(img, cv2.COLOR_RGB2LAB)
+            L, A, B = cv2.split(color)
 
-        L, A, B = cv2.split(img_lab)
+            L = (L / 50) - 1
+            A = (A - 128) / 128.0
+            B = (B - 128) / 128.0
+            gray = torch.tensor(L, dtype=torch.float32).unsqueeze(0)
+            color = torch.tensor(np.stack([A, B], axis=0), dtype=torch.float32)
+        else:
+            gray = cv2.cvtColor(color, cv2.COLOR_RGB2GRAY)
+            gray = (gray / 255.0) * 2 - 1
+            color = (color.astype(np.float32) / 255.0) * 2 - 1
+            gray = torch.from_numpy(gray).unsqueeze(0).float()
+            color = torch.from_numpy(color)
+            color = color.permute(2, 0, 1).contiguous().float() # [C, H, W]
+            color = torch.clamp(color, -1.0, 1.0)
+            assert torch.isfinite(color).all()
+            assert color.min() >= -1.0 and color.max() <= 1.0, f"color range is off: {color.min()} to {color.max()}"
 
-        L = (L / 50) - 1
-        A = (A - 128) / 128.0
-        B = (B - 128) / 128.0
-        gray = torch.tensor(L, dtype=torch.float32).unsqueeze(0)
-        color = torch.tensor(np.stack([A, B], axis=0), dtype=torch.float32)
+        return gray, color # input (1C), target (2C)
 
-        return gray, color
 
-class TestVis:
+class SketchDataModule:
     """
-    Loads test images, applies the model, and visualizes predictions.
+    Prepares training and validation DataLoaders from MangaScanes dataset path.
     """
-    def __init__(self, path, resize_shape=(512, 512)):
-        self.device = torch.device("cpu")
-        self.image_paths = self._load_image_paths(os.path.join(path, 'test'))
-        self.dataset = TestImageDataset(self.image_paths, resize_shape=resize_shape)
-        self.dataloader = torch.utils.data.DataLoader(self.dataset, batch_size=5, shuffle=False)
+    def __init__(self, path, batch_size=32, resize = (256, 256), out_ch = 2):
+        self.path_train = os.path.join(path, 'train')
+        self.path_val = os.path.join(path, 'val')
+        self.path_test = os.path.join(path, 'test')
+        self.path_to_dir = path
+        self.batch_size = batch_size
+        self.temp_dir = None
+        self.resize = resize
+        self.out_ch = out_ch
 
-    def _load_image_paths(self, path):
-        valid_exts = ('.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp')
-        return [
-            os.path.join(root, f)
-            for root, _, files in os.walk(path)
-            for f in files if f.lower().endswith(valid_exts)
-        ]
+        self.train_loader = None
+        self.val_loader = None
+        self.test_loader = None
+        self.prepare_data()
 
-    def visualize(self, model, path='test_results.png'):
-        model.eval()
-        model.to(self.device)
-
-        batch = next(iter(self.dataloader))  # Get up to n images
-        inputs, _ = batch
-        inputs = inputs.to(self.device)
-        with torch.no_grad():
-            predictions = model(inputs)
-
-        # Convert to CPU for plotting
-        originals = inputs.cpu().numpy()
-        preds = predictions.cpu().numpy()
-
-        imgs_to_plot = []
-        for i in range(preds.shape[0]):
-            L = (inputs[i] + 1) * 50.0 
-            L = L.squeeze()
-            AB = preds[i]  
-            A = (AB[0] * 128.0 + 128)
-            B = (AB[1] * 128.0 + 128)
-
-            lab = np.stack([L, A, B], axis=-1).astype(np.uint8)  # (H, W, 3)
-            rgb = cv2.cvtColor(lab, cv2.COLOR_LAB2RGB)
-            imgs_to_plot.append(rgb)
+    def prepare_data(self):
+        extensions = ('.png', '.jpg', '.jpeg', '.bmp', '.gif', '.webp')
+        train_images = [os.path.join(root, file)
+                      for root, _, files in os.walk(self.path_train)
+                      for file in files if file.lower().endswith(extensions)]
         
-        preds = imgs_to_plot
+        val_images = [os.path.join(root, file)
+                      for root, _, files in os.walk(self.path_val)
+                      for file in files if file.lower().endswith(extensions)]
 
-        plt.figure(figsize=(12, 6))
-        for i in range(5):
-            plt.subplot(2, 5, i + 1)
-            plt.imshow(originals[i].squeeze(), cmap='gray')
-            plt.axis('off')
-            plt.title('Original')
+        print(f"Found {len(train_images)} train images and {len(val_images)} val images")
 
-            plt.subplot(2, 5, i + 5 + 1)
-            output_img = preds[i] 
-            output_img = output_img.clip(0, 1)
-            if output_img.shape[2] == 1:
-                output_img = output_img.squeeze()
-                plt.imshow(output_img, cmap='gray')
-            else:
-                plt.imshow(output_img)
-            plt.axis('off')
-            plt.title('Predicted')
+        train_dataset = SketchDataset(train_images, resize=self.resize, out_ch=self.out_ch)
+        val_dataset = SketchDataset(val_images, resize=self.resize, out_ch=self.out_ch)
+        test_dataset = SketchDataset(val_images, resize=self.resize, out_ch=self.out_ch)
 
-        plt.tight_layout()
-        plt.savefig(path)
-        plt.close()
-        print(f"Saved prediction visualization to {path}")
+        self.train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
+        self.val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=self.batch_size, shuffle=True) 
+        self.test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=self.batch_size, shuffle=True)
+

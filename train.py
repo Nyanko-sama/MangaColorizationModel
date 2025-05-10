@@ -1,19 +1,18 @@
-from datasets import DanbooruDataModule, MangaScanesDataModule
-from models import SmallerUnet, ResUnet, FusionNet, GANModel, Generator
-from trainers import GanTrainer, GeneratorTrainer
+from datasets import DanbooruDataModule, MangaScanesDataModule, SketchDataModule
 import argparse
 import random
 import numpy as np
 
-import torch
+from models import ColorizationUNet, PatchDiscriminator
+from utils import Trainer
 
+import torch
+from loss import PerceptualLoss, AnimeLoss
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--epochs", default=1, type=int, help="Number of epochs.")
 parser.add_argument("--fine_epochs", default=1, type=int, help="Number of epochs.")
 parser.add_argument("--batch_size", default=32, type=int, help="Batch size.")
-parser.add_argument("--split", default=0.05, type=float, help="Validation split for the dataset.")
-
 
 def set_seed(seed=42):
     random.seed(seed)
@@ -28,28 +27,143 @@ def set_seed(seed=42):
 
 def main(args: argparse.Namespace) -> None:
     set_seed(42)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    dan_dataset = DanbooruDataModule("../danbooru", batch_size=args.batch_size, validation_split = args.split, resize=(256, 256))
-    dan_small = dan_dataset.smal_loader
+    sketch_dataset = SketchDataModule("./images", batch_size=args.batch_size, resize=(256, 256), out_ch=3)
+    sketch_loader = sketch_dataset.train_loader
+    val_loader = sketch_dataset.val_loader
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
 
-    trainer = GeneratorTrainer(
-        loss_fn=torch.nn.L1Loss(),
-        optimizer=None,
-        device=device
-    )
+    # print('Perceptual loss')
+    g_loss = PerceptualLoss()
+    # print('Attention, no extractor, perceptual loss')
+    # G = ColorizationUNet(in_channels=1, out_channels=3, use_attention=True, use_extractor=False)
+    # G.to(device)
+    # D = PatchDiscriminator()
+    # D.to(device)
+    # g_optimizer = torch.optim.Adam(G.parameters(), lr=2e-4, betas=(0.5, 0.999))
+    # d_optimizer = torch.optim.Adam(D.parameters(), lr=2e-4, betas=(0.5, 0.999))
+    # trainer = Trainer(g_optimizer, d_optimizer, g_loss=g_loss, device=device)
+    # trainer.train(G, D, sketch_loader, val_loader, num_epochs=args.epochs, path="./logs/att_perceptual")
 
-    gen = Generator().to(device)
-    trainer.optimizer = torch.optim.Adam(gen.parameters(), lr=1e-3)
-    trainer.train(gen, dan_small, args.epochs, logs_dir="./logs/new", vis_dir=dan_dataset.path_to_dir)
+    print('Attention, extractor, perceptual loss')
+    G = ColorizationUNet(in_channels=1, out_channels=3, use_attention=True, use_extractor=True)
+    G.to(device)
+    D = PatchDiscriminator()
+    D.to(device)
+    g_optimizer = torch.optim.Adam(G.parameters(), lr=2e-4, betas=(0.5, 0.999))
+    d_optimizer = torch.optim.Adam(D.parameters(), lr=2e-4, betas=(0.5, 0.999))
+    trainer = Trainer(g_optimizer, d_optimizer, g_loss=g_loss, device=device)
+    trainer.train(G, D, sketch_loader, val_loader, num_epochs=args.epochs, path="./logs/att_ext_perceptual")
 
-    gan_trainer = GanTrainer(device=device)
-    print('GAN')
-    gan_fusion = GANModel(net_G = Generator()).to(device)
-    gan_trainer.train_model(gan_fusion, dan_small, args.epochs, logs_dir="./logs/new", vis_dir=dan_dataset.path_to_dir)
-    
+    print('No attention, extractor, perceptual loss')
+    G = ColorizationUNet(in_channels=1, out_channels=3, use_attention=True, use_extractor=False)
+    G.to(device)
+    D = PatchDiscriminator()
+    D.to(device)
+    g_optimizer = torch.optim.Adam(G.parameters(), lr=2e-4, betas=(0.5, 0.999))
+    d_optimizer = torch.optim.Adam(D.parameters(), lr=2e-4, betas=(0.5, 0.999))
+    trainer = Trainer(g_optimizer, d_optimizer, g_loss=g_loss, device=device)
+    trainer.train(G, D, sketch_loader, val_loader, num_epochs=args.epochs, path="./logs/ext_perceptual")
+
+    # print('No attention, no extractor, perceptual loss')
+    # G = ColorizationUNet(in_channels=1, out_channels=3, use_attention=False, use_extractor=False)
+    # G.to(device)
+    # D = PatchDiscriminator()
+    # D.to(device)
+    # g_optimizer = torch.optim.Adam(G.parameters(), lr=2e-4, betas=(0.5, 0.999))
+    # d_optimizer = torch.optim.Adam(D.parameters(), lr=2e-4, betas=(0.5, 0.999))
+    # trainer = Trainer(g_optimizer, d_optimizer, g_loss=g_loss, device=device)
+    # trainer.train(G, D, sketch_loader, val_loader, num_epochs=args.epochs, path="./logs/perceptual")
+
+
+
+    # print('ANIME loss')
+    g_loss = AnimeLoss()
+    print('Attention, no extractor, anime loss')
+    G = ColorizationUNet(in_channels=1, out_channels=3, use_attention=True, use_extractor=False)
+    G.to(device)
+    D = PatchDiscriminator()
+    D.to(device)
+    g_optimizer = torch.optim.Adam(G.parameters(), lr=2e-4, betas=(0.5, 0.999))
+    d_optimizer = torch.optim.Adam(D.parameters(), lr=2e-4, betas=(0.5, 0.999))
+    trainer = Trainer(g_optimizer, d_optimizer, g_loss=g_loss, device=device)
+    trainer.train(G, D, sketch_loader, val_loader, num_epochs=args.epochs, path="./logs/att_anime")
+
+    print('Attention, extractor, anime loss')
+    G = ColorizationUNet(in_channels=1, out_channels=3, use_attention=True, use_extractor=True)
+    G.to(device)
+    D = PatchDiscriminator()
+    D.to(device)
+    g_optimizer = torch.optim.Adam(G.parameters(), lr=2e-4, betas=(0.5, 0.999))
+    d_optimizer = torch.optim.Adam(D.parameters(), lr=2e-4, betas=(0.5, 0.999))
+    trainer = Trainer(g_optimizer, d_optimizer, g_loss=g_loss, device=device)
+    trainer.train(G, D, sketch_loader, val_loader, num_epochs=args.epochs, path="./logs/att_ext_anime")
+
+    print('No attention, extractor, anime loss')
+    G = ColorizationUNet(in_channels=1, out_channels=3, use_attention=True, use_extractor=False)
+    G.to(device)
+    D = PatchDiscriminator()
+    D.to(device)
+    g_optimizer = torch.optim.Adam(G.parameters(), lr=2e-4, betas=(0.5, 0.999))
+    d_optimizer = torch.optim.Adam(D.parameters(), lr=2e-4, betas=(0.5, 0.999))
+    trainer = Trainer(g_optimizer, d_optimizer, g_loss=g_loss, device=device)
+    trainer.train(G, D, sketch_loader, val_loader, num_epochs=args.epochs, path="./logs/ext_anime")
+
+    print('No attention, no extractor, anime loss')
+    G = ColorizationUNet(in_channels=1, out_channels=3, use_attention=False, use_extractor=False)
+    G.to(device)
+    D = PatchDiscriminator()
+    D.to(device)
+    g_optimizer = torch.optim.Adam(G.parameters(), lr=2e-4, betas=(0.5, 0.999))
+    d_optimizer = torch.optim.Adam(D.parameters(), lr=2e-4, betas=(0.5, 0.999))
+    trainer = Trainer(g_optimizer, d_optimizer, g_loss=g_loss, device=device)
+    trainer.train(G, D, sketch_loader, val_loader, num_epochs=args.epochs, path="./logs/anime")
+
+
+    # print('L1 Loss')
+    # g_loss = None
+    # print('Attention, no extractor, l1 loss')
+    # G = ColorizationUNet(in_channels=1, out_channels=3, use_attention=True, use_extractor=False)
+    # G.to(device)
+    # D = PatchDiscriminator()
+    # D.to(device)
+    # g_optimizer = torch.optim.Adam(G.parameters(), lr=2e-4, betas=(0.5, 0.999))
+    # d_optimizer = torch.optim.Adam(D.parameters(), lr=2e-4, betas=(0.5, 0.999))
+    # trainer = Trainer(g_optimizer, d_optimizer, device=device)
+    # trainer.train(G, D, sketch_loader, val_loader, num_epochs=args.epochs, path="./logs/att_l1")
+
+    print('Attention, extractor, l1 loss')
+    G = ColorizationUNet(in_channels=1, out_channels=3, use_attention=True, use_extractor=True)
+    G.to(device)
+    D = PatchDiscriminator()
+    D.to(device)
+    g_optimizer = torch.optim.Adam(G.parameters(), lr=2e-4, betas=(0.5, 0.999))
+    d_optimizer = torch.optim.Adam(D.parameters(), lr=2e-4, betas=(0.5, 0.999))
+    trainer = Trainer(g_optimizer, d_optimizer, device=device)
+    trainer.train(G, D, sketch_loader, val_loader, num_epochs=args.epochs, path="./logs/att_ext_l1")
+
+    print('No attention, extractor, l1 loss')
+    G = ColorizationUNet(in_channels=1, out_channels=3, use_attention=True, use_extractor=False)
+    G.to(device)
+    D = PatchDiscriminator()
+    D.to(device)
+    g_optimizer = torch.optim.Adam(G.parameters(), lr=2e-4, betas=(0.5, 0.999))
+    d_optimizer = torch.optim.Adam(D.parameters(), lr=2e-4, betas=(0.5, 0.999))
+    trainer = Trainer(g_optimizer, d_optimizer, device=device)
+    trainer.train(G, D, sketch_loader, val_loader, num_epochs=args.epochs, path="./logs/ext_l1")
+
+    # print('No attention, no extractor, l1 loss')
+    # G = ColorizationUNet(in_channels=1, out_channels=3, use_attention=False, use_extractor=False)
+    # G.to(device)
+    # D = PatchDiscriminator()
+    # D.to(device)
+    # g_optimizer = torch.optim.Adam(G.parameters(), lr=2e-4, betas=(0.5, 0.999))
+    # d_optimizer = torch.optim.Adam(D.parameters(), lr=2e-4, betas=(0.5, 0.999))
+    # trainer = Trainer(g_optimizer, d_optimizer, device=device)
+    # trainer.train(G, D, sketch_loader, val_loader, num_epochs=args.epochs, path="./logs/l1")
 
 
 if __name__ == "__main__":
