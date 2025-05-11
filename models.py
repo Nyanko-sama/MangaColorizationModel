@@ -25,13 +25,19 @@ class ClassifierFeatureExtractor(nn.Module):
     def __init__(self):
         super().__init__()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model = torch.hub.load('RF5/danbooru-pretrained', 'resnet50')
-        self.model.fc = nn.Identity() 
-        self.model.eval()
-        self.model.to(self.device)
-        for param in self.model.parameters():
+        if not torch.cuda.is_available():
+            model = torch.hub.load('RF5/danbooru-pretrained', 'resnet50', pretrained=False)
+            model.load_state_dict(torch.load("../resnet50-13306192.pth", map_location='cpu'))
+        else:
+            model = torch.hub.load('RF5/danbooru-pretrained', 'resnet50')
+        model.eval()
+        model.to(self.device)
+        for param in model.parameters():
             param.requires_grad = False
-        self.fn = nn.Linear(2048, 512)
+
+        self.body = model[0]
+        head_layers = list(model[1].children())[:5]  #
+        self.head = nn.Sequential(*head_layers)
 
         self.normalize = transforms.Normalize(
             mean=[0.7137, 0.6628, 0.6519],
@@ -47,8 +53,9 @@ class ClassifierFeatureExtractor(nn.Module):
         x = F.interpolate(x, size=(360, 360), mode='bilinear', align_corners=False)
         x = torch.stack([self.normalize(img) for img in x])
         
-        x = self.model(x)
-        x = self.fn(x)
+        with torch.no_grad():
+            x = self.body(x)
+            x = self.head(x)
         return x
     
 class SelfAttention(nn.Module):
@@ -111,7 +118,7 @@ class ColorizationUNet(nn.Module):
         if self.use_attention:
             self.attn = SelfAttention(512*2 if self.use_extractor else 512) 
 
-        self.up1 = DeconvBlock(512, 512, dropout=True)  # 1 -> 2
+        self.up1 = DeconvBlock(512*2 if self.use_extractor else 512, 512, dropout=True)  # 1 -> 2
         self.up2 = DeconvBlock(512*2, 512, dropout=True) # 2 -> 4 
         self.up3 = DeconvBlock(512*2, 512, dropout=True) # 4 -> 8 
         self.up4 = DeconvBlock(512*2, 512)  # 8 -> 16 

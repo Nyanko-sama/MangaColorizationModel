@@ -249,14 +249,18 @@ class SketchDataModule:
         val_images = [os.path.join(root, file)
                       for root, _, files in os.walk(self.path_val)
                       for file in files if file.lower().endswith(extensions)]
+        
+        test_images = [os.path.join(root, file)
+                      for root, _, files in os.walk(self.path_test)
+                      for file in files if file.lower().endswith(extensions)]
 
         print(f"Found {len(train_images)} train images and {len(val_images)} val images")
 
         train_dataset = SketchDataset(train_images, resize=self.resize, out_ch=self.out_ch)
         val_dataset = SketchDataset(val_images, resize=self.resize, out_ch=self.out_ch)
-        test_dataset = SketchDataset(val_images, resize=self.resize, out_ch=self.out_ch)
+        test_dataset = SketchDataset(test_images, resize=self.resize, out_ch=self.out_ch)
 
         self.train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
-        self.val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=self.batch_size, shuffle=True) 
-        self.test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=self.batch_size, shuffle=True)
+        self.val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=self.batch_size, shuffle=False) 
+        self.test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=self.batch_size, shuffle=False)
 

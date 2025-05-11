@@ -33,14 +33,20 @@ class PerceptualLoss(nn.Module):
         return perc_loss
 
 class AnimeLoss(nn.Module):
-    def __init__(self):
+    def __init__(self, a = 0.1):
         super(AnimeLoss, self).__init__()
-        self.model = torch.hub.load('RF5/danbooru-pretrained', 'resnet50')
-        self.model.fc = nn.Identity() 
-        self.model.eval()
-        self.model.to(DEVICE)
-        for param in self.model.parameters():
+        self.a = a
+        self.device = DEVICE
+        model = torch.hub.load('RF5/danbooru-pretrained', 'resnet50')
+        model.eval()
+        model.to(self.device)
+        for param in model.parameters():
             param.requires_grad = False
+
+        self.body = model[0]
+        head_layers = list(model[1].children())[:5]  
+        self.head = nn.Sequential(*head_layers)
+
         self.peceptual_loss = PerceptualLoss()
 
         self.normalize = transforms.Normalize(
@@ -49,7 +55,10 @@ class AnimeLoss(nn.Module):
         ) 
 
     def forward(self, output, target):
-        perceptual_loss = self.peceptual_loss(output, target)
+        if self.a != 1:
+            perceptual_loss = self.peceptual_loss(output, target)
+        else:
+            perceptual_loss = 0
         
         output = (output + 1) / 2
         target = (target + 1) / 2
@@ -59,9 +68,10 @@ class AnimeLoss(nn.Module):
         output = torch.stack([self.normalize(img) for img in output])
         target = torch.stack([self.normalize(img) for img in target])
 
-        out_f = self.model(output)
-        tgt_f = self.model(target)
+        with torch.no_grad():
+            out_f = self.head(self.body(output))
+            tgt_f = self.head(self.body(target))
 
         anime_loss = F.mse_loss(out_f, tgt_f)
     
-        return  0.1*anime_loss + 0.9*perceptual_loss
+        return  self.a*anime_loss + (1-self.a)*perceptual_loss

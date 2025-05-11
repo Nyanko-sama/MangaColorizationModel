@@ -3,10 +3,33 @@ from tqdm import tqdm
 import os
 import csv
 
-
 import matplotlib.pyplot as plt
 import torchvision.transforms as T
 import torch.nn as nn
+
+def show_images(images, padding=1, titles=None):
+    n = len(images)
+
+    fig, axes = plt.subplots(1, n, figsize=(n * 3, 3))
+    if n == 1:
+        axes = [axes]  
+
+    for i in range(n):
+        image = images[i].cpu()
+
+        image = (image + 1) / 2  # scale to [0, 1]
+        
+        if image.size(0) == 1:  # grayscale
+            axes[i].imshow(image.permute(1, 2, 0), cmap="gray")
+        else:
+            axes[i].imshow(image.permute(1, 2, 0))
+        
+        if titles:
+            axes[i].set_title(titles[i])
+        axes[i].axis('off')
+        
+    plt.tight_layout(pad=padding)
+    plt.show()
 
 def save_val_collage(model, val_loader, device, save_path="collage.png"):
     model.eval()
@@ -119,7 +142,7 @@ class Trainer:
             losses_d.append(loss_D.item())
             os.makedirs(path, exist_ok=True)
             save_val_collage(G, val_loader = validation_loader, device = self.device, save_path=os.path.join(path, f"collage_epoch_{epoch}.png"))
-            if epoch > 30:
+            if epoch+1 >= 30 and (epoch+1)%5 == 0:
                 self.save_model(G, epoch, path)
 
         with open(os.path.join(path, "losses.csv"), "w", newline="") as f:
