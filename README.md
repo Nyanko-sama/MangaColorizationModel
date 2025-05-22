@@ -1,24 +1,3 @@
----
-jupyter:
-  kernelspec:
-    display_name: .venv_deeplife
-    language: python
-    name: python3
-  language_info:
-    codemirror_mode:
-      name: ipython
-      version: 3
-    file_extension: .py
-    mimetype: text/x-python
-    name: python
-    nbconvert_exporter: python
-    pygments_lexer: ipython3
-    version: 3.12.7
-  nbformat: 4
-  nbformat_minor: 5
----
-
-::: {#e5f91161 .cell .markdown}
 # Manga Colorization Model
 
 This model\'s goal is to colorize manga pages, however, I started from
@@ -27,9 +6,7 @@ colorization of simple anime-style illustration.
 For training [Anime Sketch Colorization
 Pair](https://www.kaggle.com/datasets/ktaebum/anime-sketch-colorization-pair/code)
 dataset was used.
-:::
 
-::: {#2cc204a9 .cell .markdown}
 ### Preprocessing
 
 Colored images were converted to grayscale. I have to chose between
@@ -39,9 +16,7 @@ grayscale art.
 
 Images were normalized to \[-1, 1\] range and resized from 512x512 to
 256x256.
-:::
 
-::: {#1e8d9216 .cell .code execution_count="1"}
 ``` python
 from datasets import SketchDataModule
 from utils import show_images
@@ -58,10 +33,6 @@ test_loader = dataset.test_loader
 gray, color = next(iter(test_loader))
 show_images(color)
 ```
-
-::: {.output .stream .stdout}
-    Found 14224 train images and 3539 val images
-:::
 
 ::: {.output .display_data}
 ![](images/664aa0817bac72ded8c3ef01f34b1b5bc61d0848.png)
