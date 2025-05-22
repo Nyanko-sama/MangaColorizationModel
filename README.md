@@ -100,7 +100,7 @@ Generator loss is a combination of discriminator loss, L1 loss (just an
 average absolute difference between predicted values and ground truth)
 and optionally perceptual loss. In my model, I tried 3 options.
 
--   only L1 loss + adversarial loss (how many fake paths dthe iscriminator
+-   only L1 loss + adversarial loss (how many fake paths the discriminator
     could identify)
 -   l1 loss + adversarial loss + perceptual loss based on VGG model
 -   l1 loss + adversarial loss + perceptual loss based on VGG model +
@@ -113,9 +113,15 @@ When VGG perceptual loss is mostly used, I have thought about combining
 it with a 0.1 difference in feature representation of Danbooru18
 ResNet50 model.
 
-\\begin{gather*} GeneratorLoss = 0.01 \\cdot AdversarialLoss + 1.0
-\\cdot L1Loss + 0.1 \\cdot PerceptualLoss\\ PerceptualLoss = a \\cdot
-VGGLoss + (1-a) \\cdot AnimeLoss \\end{gather*}
+The generator loss is calculated as
+$$
+\text{GeneratorLoss} = 0.01 \cdot \text{AdversarialLoss} + 1.0 \cdot \text{L1Loss} + 0.1 \cdot \text{PerceptualLoss}
+$$
+
+The perceptual loss is defined as:
+$$
+\text{PerceptualLoss} = a \cdot \text{VGGLoss} + (1 - a) \cdot \text{AnimeLoss}
+$$
 
 Each model was trained for 50 epochs, till it produced more or less
 reasonable output images. Adam with lr=2e-4 and betas=(0.5, 0.999) was
