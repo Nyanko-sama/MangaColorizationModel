@@ -113,15 +113,13 @@ When VGG perceptual loss is mostly used, I have thought about combining
 it with a 0.1 difference in feature representation of Danbooru18
 ResNet50 model.
 
-The generator loss is calculated as
-$$
-\text{GeneratorLoss} = 0.01 \cdot \text{AdversarialLoss} + 1.0 \cdot \text{L1Loss} + 0.1 \cdot \text{PerceptualLoss}
-$$
+The generator loss is calculated as:
+
+$$\text{GeneratorLoss} = 0.01 \cdot \text{AdversarialLoss} + 1.0 \cdot \text{L1Loss} + 0.1 \cdot \text{PerceptualLoss}$$
 
 The perceptual loss is defined as:
-$$
-\text{PerceptualLoss} = a \cdot \text{VGGLoss} + (1 - a) \cdot \text{AnimeLoss}
-$$
+
+$$\text{PerceptualLoss} = a \cdot \text{VGGLoss} + (1 - a) \cdot \text{AnimeLoss}$$
 
 Each model was trained for 50 epochs, till it produced more or less
 reasonable output images. Adam with lr=2e-4 and betas=(0.5, 0.999) was
