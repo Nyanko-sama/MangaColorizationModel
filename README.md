@@ -34,12 +34,8 @@ gray, color = next(iter(test_loader))
 show_images(color)
 ```
 
-::: {.output .display_data}
 ![](images/664aa0817bac72ded8c3ef01f34b1b5bc61d0848.png)
-:::
-:::
 
-::: {#d68f6200 .cell .markdown}
 ### The model
 
 Best image generators are trained using Generative Adversarial Network
@@ -51,9 +47,7 @@ setup:
     sketches.
 -   The discriminator tries to distinguish between real data and the
     fake data generated.
-:::
 
-::: {#452a011e .cell .markdown}
 ### Generator
 
 I created several generator architectures that are different from one
@@ -87,9 +81,7 @@ layer is concatenated with feature extraction model output and then all
 this 1024 go to self attention layer before transposed conv layers.
 
 `<img src="images/unet_att_ext.png" width="400"/>`{=html}
-:::
 
-::: {#551de3ff .cell .code execution_count="2"}
 ``` python
 from models import ConvBlock, DeconvBlock, SelfAttention, ClassifierFeatureExtractor
 import torch.nn as nn
@@ -159,18 +151,14 @@ class ColorizationUNet(nn.Module):
         out = torch.tanh(out)
         return out
 ```
-:::
 
-::: {#c9aba11b .cell .markdown}
 ### Discriminator
 
 Discriminator I built is designed in such a way that it classifies
 patches of an image as real/fake.
 
 `<img src="images/discriminator.png" width="400"/>`{=html}
-:::
 
-::: {#f28da5f3 .cell .code}
 ``` python
 import torch.nn.functional as F
 
@@ -192,9 +180,7 @@ class PatchDiscriminator(nn.Module):
         x = self.conv5(x)
         return x
 ```
-:::
 
-::: {#dc5fea1b .cell .markdown}
 ### Loss Functions
 
 #### Discriminator loss
@@ -224,9 +210,7 @@ resnet50 model.
 \\begin{gather*} GeneratorLoss = 0.01 \\cdot AdversarialLoss + 1.0
 \\cdot L1Loss + 0.1 \\cdot PerceptualLoss\\ PerceptualLoss = a \\cdot
 VGGLoss + (1-a) \\cdot AnimeLoss \\end{gather*}
-:::
 
-::: {#b7e7d951 .cell .code}
 ``` python
 from loss import PerceptualLoss
 import torchvision.transforms as transforms
@@ -275,23 +259,15 @@ class AnimeLoss(nn.Module):
     
         return  self.a*anime_loss + (1-self.a)*perceptual_loss
 ```
-:::
 
-::: {#85d25b47 .cell .markdown}
 Each model was trained for 50 epochs - when it produces more or less
 reasonable output images. Adam with lr=2e-4 and betas=(0.5, 0.999) was
 used as optimizer for both discriminator and generator.
-:::
 
-::: {#a9344166 .cell .markdown}
 ### The results
-:::
 
-::: {#5c1f6f50 .cell .markdown}
 #### L1 Loss
-:::
 
-::: {#a5721d29 .cell .code execution_count="3"}
 ``` python
 def test_model(model, dataloader):
     model.eval()
@@ -303,9 +279,7 @@ def test_model(model, dataloader):
             results = output
     return results
 ```
-:::
 
-::: {#79370a23 .cell .code execution_count="4"}
 ``` python
 import matplotlib.pyplot as plt
 
@@ -343,48 +317,17 @@ show_images(preds, titles = ["l1 Loss, attention, extraction"]*5)
 plt.clf()
 ```
 
-::: {.output .display_data}
 ![](images/448790f72ea02d7b1062b9bcd03038f24c654dd5.png)
-:::
 
-::: {.output .display_data}
 ![](images/52b6f39a7982e907db7f54cada34f708f5339f4c.png)
-:::
 
-::: {.output .display_data}
-    <Figure size 640x480 with 0 Axes>
-:::
-
-::: {.output .display_data}
 ![](images/8a823b289fb4bc60ac74655494c7bc63cd7e7e55.png)
-:::
 
-::: {.output .stream .stderr}
-    Using cache found in C:\Users\nelia/.cache\torch\hub\RF5_danbooru-pretrained_master
-    c:\Users\nelia\OneDrive\Рабочий стол\semester 2\Deep learning\.venv_DL\Lib\site-packages\torchvision\models\_utils.py:208: UserWarning: The parameter 'pretrained' is deprecated since 0.13 and may be removed in the future, please use 'weights' instead.
-      warnings.warn(
-    c:\Users\nelia\OneDrive\Рабочий стол\semester 2\Deep learning\.venv_DL\Lib\site-packages\torchvision\models\_utils.py:223: UserWarning: Arguments other than a weight enum or `None` for 'weights' are deprecated since 0.13 and may be removed in the future. The current behavior is equivalent to passing `weights=None`.
-      warnings.warn(msg)
-:::
-
-::: {.output .display_data}
-    <Figure size 640x480 with 0 Axes>
-:::
-
-::: {.output .display_data}
 ![](images/3535329052c094e5f93a72be5dd5a8d0f05105e9.png)
-:::
 
-::: {.output .display_data}
-    <Figure size 640x480 with 0 Axes>
-:::
-:::
 
-::: {#db6524e0 .cell .markdown}
 #### Perceptual Loss
-:::
 
-::: {#0322f7d3 .cell .code execution_count="5"}
 ``` python
 show_images(color, titles = ["original"]*5)
 
@@ -421,44 +364,16 @@ show_images(preds, titles = ["Perceptual Loss, attention, extractor"]*5)
 plt.clf()
 ```
 
-::: {.output .display_data}
 ![](images/448790f72ea02d7b1062b9bcd03038f24c654dd5.png)
-:::
 
-::: {.output .display_data}
 ![](images/475963663eb95c27836f3d2684aac8e63d71747f.png)
-:::
 
-::: {.output .display_data}
-    <Figure size 640x480 with 0 Axes>
-:::
-
-::: {.output .display_data}
 ![](images/94d5c557583fa5cbf4b351c9712a1df60b7b1c23.png)
-:::
 
-::: {.output .stream .stderr}
-    Using cache found in C:\Users\nelia/.cache\torch\hub\RF5_danbooru-pretrained_master
-:::
-
-::: {.output .display_data}
-    <Figure size 640x480 with 0 Axes>
-:::
-
-::: {.output .display_data}
 ![](images/cbb310274939f4b7231fe0b29e316ddf63b1e081.png)
-:::
 
-::: {.output .display_data}
-    <Figure size 640x480 with 0 Axes>
-:::
-:::
-
-::: {#6d510edc .cell .markdown}
 #### 0.9 Perceptual Loss + 0.1 Anime Loss {#09-perceptual-loss--01-anime-loss}
-:::
 
-::: {#fc3867a3 .cell .code execution_count="6"}
 ``` python
 show_images(color, titles = ["original"]*5)
 
@@ -495,40 +410,14 @@ show_images(preds, titles = ["Anime Loss, attention, extractor"]*5)
 plt.clf()
 ```
 
-::: {.output .display_data}
 ![](images/448790f72ea02d7b1062b9bcd03038f24c654dd5.png)
-:::
 
-::: {.output .display_data}
 ![](images/dbca4a0a77535f099a14ca0d09b04526a8322b58.png)
-:::
 
-::: {.output .display_data}
-    <Figure size 640x480 with 0 Axes>
-:::
-
-::: {.output .display_data}
 ![](images/37a2318c1912d74c8c4e8f613e6e96a6759738b0.png)
-:::
 
-::: {.output .stream .stderr}
-    Using cache found in C:\Users\nelia/.cache\torch\hub\RF5_danbooru-pretrained_master
-:::
-
-::: {.output .display_data}
-    <Figure size 640x480 with 0 Axes>
-:::
-
-::: {.output .display_data}
 ![](images/eefd43c2b68bea7b859353545ed22e0ab80da9c2.png)
-:::
 
-::: {.output .display_data}
-    <Figure size 640x480 with 0 Axes>
-:::
-:::
-
-::: {#47cbe511 .cell .code execution_count="9"}
 ``` python
 show_images(color, titles = ["original"]*5)
 
@@ -541,49 +430,34 @@ show_images(preds, titles = ["Anime Loss"]*5)
 plt.clf()
 ```
 
-::: {.output .display_data}
 ![](images/448790f72ea02d7b1062b9bcd03038f24c654dd5.png)
-:::
 
-::: {.output .display_data}
 ![](images/e658381334df8ce44279878e9cf780f79d929246.png)
-:::
 
-::: {.output .display_data}
-    <Figure size 640x480 with 0 Axes>
-:::
-:::
-
-::: {#1cbf8878 .cell .markdown}
-From all models above model with perceptual loss, attention and
-extractor performs the best on test images. However, if our criteria is
+From all models above model with perceptual loss, attention, and
+extractor performs the best on test images. However, if our criteria are
 \"vividness\" and \"anime-likeness\" the model with anime loss is
-better. However, anime loss should be combined with vgg loss to produce
-normal images (without strange line of pixels at the top).
+better. However, anime loss should be combined with VGG loss to produce
+normal images (without a strange line of pixels at the top).
 
-Unfortunately, I didn\'t save correctly models only with extractor,
-nevertheless, it performs well on val dataset during training. As about
-performance on test dataset, attention generally makes prediction better
+Unfortunately, I didn't save models correctly only with the extractor,
+nevertheless, it performs well on the validation dataset during training. As for
+performance on the test dataset, attention generally makes predictions better
 in all types of losses. And feature extractor makes perceptual +
 attention model better (but it is not the case for other losses).
-:::
 
-::: {#47b036cf .cell .markdown}
 Problems:
 
--   I trained my models only for 50 epochs, more time is needed for
+-   I trained my models only for 50 epochs; more time is needed for
     convergence.
--   the model is designed only for images 256x256 and during training I
-    am resizing original images (512x512) so they have worse resolution
-:::
+-   The model is designed only for images 256x256, and during training, I
+    am resizing the original images (512x512) so they have a worse resolution
 
-::: {#4f072da0 .cell .markdown}
 Future plans:
 
--   train the model on larger dataset and then fine-tune on manga pages
--   train the model not on grayscale images but on mix of grayscale +
+-   Train the model on a larger dataset and then fine-tune on manga pages
+-   Train the model not on grayscale images but on a mix of grayscale +
     line
--   add panel extractor and put each panel into model separately
--   add super resolution model to get larger and better images
-:::
+-   Add panel extractor and put each panel into the model separately
+-   Add super-resolution model to get larger and better images
 
